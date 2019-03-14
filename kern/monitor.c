@@ -24,9 +24,42 @@ struct Command {
 static struct Command commands[] = {
 	{ "help", "Display this list of commands", mon_help },
 	{ "kerninfo", "Display information about the kernel", mon_kerninfo },
+	{ "time", "Display time about kernel", mon_time},
 };
 
 /***** Implementations of basic kernel monitor commands *****/
+uint64_t rdtsc(){
+        uint32_t lo,hi;
+
+        __asm__ __volatile__
+        (
+         "rdtsc":"=a"(lo),"=d"(hi)
+        );
+        return (uint64_t)hi<<32|lo;
+}
+int
+mon_time(int argc, char **argv, struct Trapframe *tf){
+	uint64_t begin = 0, end = 0;
+	char c[256];
+	bool found = false;
+	int i;
+	//cprintf("%s\n", argv[0]);
+	for (i = 0; i < ARRAY_SIZE(commands); i++) {
+		if (strcmp(argv[1], commands[i].name) == 0){
+			begin = rdtsc();
+			commands[i].func(argc-1, argv+1, tf);
+			end = rdtsc();
+			strcpy(c, argv[0]);
+			found = true;
+			break;
+		}
+	}
+	if(found)
+		cprintf("%s cycles:%d\n", c, end - begin);
+	else
+		cprintf("%s\n", "Command not found!");
+	return 0;
+}
 
 int
 mon_help(int argc, char **argv, struct Trapframe *tf)
