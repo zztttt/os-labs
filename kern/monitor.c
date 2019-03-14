@@ -84,10 +84,15 @@ start_overflow(void)
 
     char str[256] = {};
     int nstr = 0;
-    char *pret_addr;
 
-	// Your code here.
-    
+	//Lab1 Code
+    char * pret_addr = (char *) read_pretaddr();
+    uint32_t overflow_addr = (uint32_t) do_overflow;
+    int i;
+    for (i = 0; i < 4; ++i)
+      cprintf("%*s%n\n", pret_addr[i] & 0xFF, "", pret_addr + 4 + i);
+    for (i = 0; i < 4; ++i)
+      cprintf("%*s%n\n", (overflow_addr >> (8*i)) & 0xFF, "", pret_addr + i);
 
 
 }
@@ -102,6 +107,22 @@ int
 mon_backtrace(int argc, char **argv, struct Trapframe *tf)
 {
 	// Your code here.
+	cprintf("Stack backtrace\n");
+	uint32_t ebp = read_ebp();
+	cprintf("ebp : %x\n", ebp);
+	while(ebp != 0){
+		uint32_t eip = *(int*)(ebp+4);
+		cprintf("  eip %08x  ebp %08x  args %08x %08x %08x %08x %08x\n",
+				eip, ebp,
+				*(int*)(ebp+8),*(int*)(ebp+12),*(int*)(ebp+16),*(int*)(ebp+20),*(int*)(ebp+24));
+		struct Eipdebuginfo info;
+		if(debuginfo_eip(eip,&info)>=0){
+			cprintf("         %s:%d %.*s+%d\n",
+			info.eip_file, info.eip_line,
+			info.eip_fn_namelen, info.eip_fn_name, eip-info.eip_fn_addr);
+		}
+		ebp = *(int*)ebp;
+	}
 	overflow_me();
     	cprintf("Backtrace success\n");
 	return 0;
@@ -160,6 +181,14 @@ monitor(struct Trapframe *tf)
 
 	cprintf("Welcome to the JOS kernel monitor!\n");
 	cprintf("Type 'help' for a list of commands.\n");
+
+	/*int x = 1, y = 3, z = 4;
+	cprintf("x %d, y %x, z %d\n", x, y, z);*/
+	/*unsigned int i = 0x00646c72;
+    cprintf("H%x Wo%s", 57616, &i);*/
+	//cprintf("x=%d y=%d", 3);
+
+
 
 
 	while (1) {
