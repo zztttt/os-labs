@@ -119,15 +119,18 @@ start_overflow(void)
     int nstr = 0;
 
 	//Lab1 Code
-    char * pret_addr = (char *) read_pretaddr();
+    char* pret_addr = (char *) read_pretaddr();
+	//char* overflow_addr = (char*) ((uint32_t)do_overflow);
     uint32_t overflow_addr = (uint32_t) do_overflow;
     int i;
-    for (i = 0; i < 4; ++i)
-      cprintf("%*s%n\n", pret_addr[i] & 0xFF, "", pret_addr + 4 + i);
-    for (i = 0; i < 4; ++i)
-      cprintf("%*s%n\n", (overflow_addr >> (8*i)) & 0xFF, "", pret_addr + i);
-
-
+	for(i = 0; i < 4; ++i){
+		//store original ret_addr in before+4
+		memset(pret_addr+4+i, *(pret_addr+i), 1);
+	}
+	for(i = 0; i < 4; ++i){
+		//set overflow ret_addr
+		memset(pret_addr+i, (overflow_addr>>(8*i)) & 0xFF, 1);
+	}
 }
 
 void
@@ -215,8 +218,8 @@ monitor(struct Trapframe *tf)
 	cprintf("Welcome to the JOS kernel monitor!\n");
 	cprintf("Type 'help' for a list of commands.\n");
 
-	/*int x = 1, y = 3, z = 4;
-	cprintf("x %d, y %x, z %d\n", x, y, z);*/
+	int x = 1, y = 3, z = 4;
+	cprintf("x %d, y %x, z %d\n", x, y, z);
 	/*unsigned int i = 0x00646c72;
     cprintf("H%x Wo%s", 57616, &i);*/
 	//cprintf("x=%d y=%d", 3);

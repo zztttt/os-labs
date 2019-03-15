@@ -39,10 +39,11 @@ printnum(void (*putch)(int, void*), void *putdat,
 	// if cprintf'parameter includes pattern of the form "%-", padding
 	// space on the right side if neccesary.
 	// you can add helper function if needed.
-	// your code here:
+	//Lab1 Code
 	if(padc == '-'){
 		padc = ' ';
 		printnum(putch,putdat,num,base,0,padc);
+		// put in a blank
 		while (--width > 0)
 			putch(padc, putdat);
 		return;
