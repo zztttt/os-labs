@@ -24,9 +24,42 @@ struct Command {
 static struct Command commands[] = {
 	{ "help", "Display this list of commands", mon_help },
 	{ "kerninfo", "Display information about the kernel", mon_kerninfo },
+	{ "time", "Display time about kernel", mon_time},
 };
 
 /***** Implementations of basic kernel monitor commands *****/
+uint64_t rdtsc(){
+        uint32_t lo,hi;
+
+        __asm__ __volatile__
+        (
+         "rdtsc":"=a"(lo),"=d"(hi)
+        );
+        return (uint64_t)hi<<32|lo;
+}
+int
+mon_time(int argc, char **argv, struct Trapframe *tf){
+	uint64_t begin = 0, end = 0;
+	char c[256];
+	bool found = false;
+	int i;
+	//cprintf("%s\n", argv[0]);
+	for (i = 0; i < ARRAY_SIZE(commands); i++) {
+		if (strcmp(argv[1], commands[i].name) == 0){
+			begin = rdtsc();
+			commands[i].func(argc-1, argv+1, tf);
+			end = rdtsc();
+			strcpy(c, argv[0]);
+			found = true;
+			break;
+		}
+	}
+	if(found)
+		cprintf("%s cycles:%d\n", c, end - begin);
+	else
+		cprintf("%s\n", "Command not found!");
+	return 0;
+}
 
 int
 mon_help(int argc, char **argv, struct Trapframe *tf)
@@ -54,10 +87,80 @@ mon_kerninfo(int argc, char **argv, struct Trapframe *tf)
 	return 0;
 }
 
+// Lab1 only
+// read the pointer to the retaddr on the stack
+static uint32_t
+read_pretaddr() {
+    uint32_t pretaddr;
+    __asm __volatile("leal 4(%%ebp), %0" : "=r" (pretaddr)); 
+    return pretaddr;
+}
+
+void
+do_overflow(void)
+{
+    cprintf("Overflow success\n");
+}
+
+void
+start_overflow(void)
+{
+	// You should use a techique similar to buffer overflow
+	// to invoke the do_overflow function and
+	// the procedure must return normally.
+
+    // And you must use the "cprintf" function with %n specifier
+    // you augmented in the "Exercise 9" to do this job.
+
+    // hint: You can use the read_pretaddr function to retrieve 
+    //       the pointer to the function call return address;
+
+    char str[256] = {};
+    int nstr = 0;
+
+	//Lab1 Code
+    char* pret_addr = (char *) read_pretaddr();
+	//char* overflow_addr = (char*) ((uint32_t)do_overflow);
+    uint32_t overflow_addr = (uint32_t) do_overflow;
+    int i;
+	for(i = 0; i < 4; ++i){
+		//store original ret_addr in before+4
+		memset(pret_addr+4+i, *(pret_addr+i), 1);
+	}
+	for(i = 0; i < 4; ++i){
+		//set overflow ret_addr
+		memset(pret_addr+i, (overflow_addr>>(8*i)) & 0xFF, 1);
+	}
+}
+
+void
+overflow_me(void)
+{
+        start_overflow();
+}
+
 int
 mon_backtrace(int argc, char **argv, struct Trapframe *tf)
 {
 	// Your code here.
+	cprintf("Stack backtrace\n");
+	uint32_t ebp = read_ebp();
+	cprintf("ebp : %x\n", ebp);
+	while(ebp != 0){
+		uint32_t eip = *(int*)(ebp+4);
+		cprintf("  eip %08x  ebp %08x  args %08x %08x %08x %08x %08x\n",
+				eip, ebp,
+				*(int*)(ebp+8),*(int*)(ebp+12),*(int*)(ebp+16),*(int*)(ebp+20),*(int*)(ebp+24));
+		struct Eipdebuginfo info;
+		if(debuginfo_eip(eip,&info)>=0){
+			cprintf("         %s:%d %.*s+%d\n",
+			info.eip_file, info.eip_line,
+			info.eip_fn_namelen, info.eip_fn_name, eip-info.eip_fn_addr);
+		}
+		ebp = *(int*)ebp;
+	}
+	overflow_me();
+    	cprintf("Backtrace success\n");
 	return 0;
 }
 
@@ -114,6 +217,14 @@ monitor(struct Trapframe *tf)
 
 	cprintf("Welcome to the JOS kernel monitor!\n");
 	cprintf("Type 'help' for a list of commands.\n");
+
+	int x = 1, y = 3, z = 4;
+	cprintf("x %d, y %x, z %d\n", x, y, z);
+	/*unsigned int i = 0x00646c72;
+    cprintf("H%x Wo%s", 57616, &i);*/
+	//cprintf("x=%d y=%d", 3);
+
+
 
 
 	while (1) {
