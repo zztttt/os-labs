@@ -18,7 +18,6 @@ static size_t npages_basemem;	// Amount of base memory (in pages)
 pde_t *kern_pgdir;		// Kernel's initial page directory
 struct PageInfo *pages;		// Physical page state array
 static struct PageInfo *page_free_list;	// Free list of physical pages
-static struct PageInfo *chunk_list;
 
 // --------------------------------------------------------------
 // Detect machine's physical memory setup.
@@ -273,23 +272,26 @@ page_init(void)
 	// free pages!
 	size_t i = 0;
 	page_free_list = NULL;
-	// 1)
+	// 1)Mark physical page[0] as in use.
 	for (; i < 1; i++) {
 		pages[i].pp_ref = 1;
 		pages[i].pp_link = NULL;
 	}
-	// 2)
+	// 2)The rest of base memory, [PGSIZE, npages_basemem * PGSIZE) is free
+	//   page[1]- page[npages_basemem-1]
 	for (; i < npages_basemem; i++) {
 		pages[i].pp_ref = 0;
 		pages[i].pp_link = page_free_list;
-		page_free_list = &pages[i];
+		page_free_list = pages + i;
 	}
-	// 3)
-	for (; i < (EXTPHYSMEM / PGSIZE); i++) {
+	// 3)Then comes the IO hole [IOPHYSMEM, EXTPHYSMEM), which must
+	//     never be allocated.
+	//TODO: really need init i?
+	for (i = IOPHYSMEM/PGSIZE; i < (EXTPHYSMEM / PGSIZE); i++) {
 		pages[i].pp_ref = 1;
 		pages[i].pp_link = NULL;
 	}
-	// 4)
+	// 4)Then extended memory [EXTPHYSMEM, ...).
 	for (; i < PGNUM(PADDR(boot_alloc(0))); i++) {
 		pages[i].pp_ref = 1;
 		pages[i].pp_link = NULL;
@@ -297,9 +299,8 @@ page_init(void)
 	for (; i < npages; i++) {
 		pages[i].pp_ref = 0;
 		pages[i].pp_link = page_free_list;
-		page_free_list = &pages[i];
+		page_free_list = pages + i;
 	}
-	//chunk_list = NULL;
 }
 
 //
@@ -318,17 +319,20 @@ struct PageInfo *
 page_alloc(int alloc_flags)
 {
 	// Fill this function in
-	//return 0;
-	if( page_free_list == NULL )
-    	return NULL;
-	if( alloc_flags & ALLOC_ZERO )
+	/*
+	* page_free_list == NULL means there are not free page to alloc, so that return NULL
+	*/
+	struct PageInfo * ret = NULL;
+	if(page_free_list == NULL)
+		return NULL;
+	if(alloc_flags & ALLOC_ZERO){
 		memset(page2kva(page_free_list),0,PGSIZE);
-
-	struct PageInfo * ret_page_alloc = page_free_list;
+	}
+	ret = page_free_list;
 	page_free_list = page_free_list->pp_link;
-	ret_page_alloc->pp_ref = 0 ;
-    ret_page_alloc->pp_link = NULL ;
-	return ret_page_alloc;
+	ret->pp_link = NULL;
+	ret->pp_ref = 0;
+	return ret;
 }
 
 //
@@ -341,8 +345,10 @@ page_free(struct PageInfo *pp)
 	// Fill this function in
 	// Hint: You may want to panic if pp->pp_ref is nonzero or
 	// pp->pp_link is not NULL.
-	assert(pp->pp_ref == 0);
-	assert(pp->pp_link == NULL);
+	if(pp->pp_ref != 0)
+		panic("page_free:	pp->ref is nonzero!");
+	if(pp->pp_link != NULL)
+		panic("page_free:	pp->link is not NULL!");
 	pp->pp_link = page_free_list;
   	page_free_list = pp;
 }
@@ -384,7 +390,6 @@ pte_t *
 pgdir_walk(pde_t *pgdir, const void *va, int create)
 {
 	// Fill this function in
-	//return NULL;
 	pde_t * target_pde = &pgdir[PDX(va)];
 	pte_t * target_pt = NULL;
 	if(!(*target_pde & PTE_P) && create){
@@ -442,9 +447,6 @@ boot_map_region_large(pde_t *pgdir, uintptr_t va, size_t size, physaddr_t pa, in
 	for (i = 0; i < size; i += 0x400000) {
 		pde_t * target_pde = &pgdir[PDX(va+i)];
 		if((*target_pde & (PTE_P | PTE_PS)) != (PTE_P | PTE_PS)){
-		if(*target_pde & PTE_P){
-			cprintf("DANGEROUS!COVER OLD PT,UNTRACK PT\n");
-		}
 		*target_pde = (pa + i) | perm | PTE_P | PTE_PS;
 		}
 	}

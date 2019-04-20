@@ -23,8 +23,10 @@ struct Command {
 
 static struct Command commands[] = {
 	{ "help", "Display this list of commands", mon_help },
+	{ "backtrace", "Backtrace calling stack", mon_backtrace },
 	{ "kerninfo", "Display information about the kernel", mon_kerninfo },
 	{ "time", "Display time about kernel", mon_time},
+	{ "showmappings", "Display information about physical page mappings", mon_showmappings},
 };
 
 /***** Implementations of basic kernel monitor commands *****/
@@ -36,6 +38,68 @@ uint64_t rdtsc(){
          "rdtsc":"=a"(lo),"=d"(hi)
         );
         return (uint64_t)hi<<32|lo;
+}
+int
+mon_showmappings(int argc, char **argv, struct Trapframe *tf)
+{
+	char perms[1 << 8] = {
+        [0] = '-', 
+		[PTE_W] = 'W',
+        [PTE_U] = 'U',
+        [PTE_A] = 'A',
+        [PTE_D] = 'D',
+        [PTE_PS] = 'S'
+    };
+    char *arg1 = argv[1], *arg2 = argv[2], *arg3 = argv[3];
+    char *endptr;
+    if (argc != 3) panic("Error! Two arguments expected!\n");
+	uintptr_t va_l = strtol(arg1, &endptr, 16);
+    if (*endptr) panic("Error! Start address format error!\n");
+    uintptr_t va_r = strtol(arg2, &endptr, 16);
+    if (*endptr) panic("Error! End address format error!\n");
+    if (va_l > va_r) panic("Error! Address range error!\n");
+	cprintf("----------------------------------------------------------------------------|\n");
+	cprintf("      vitual addr            physical addr	  entry   permissions -|\n");
+    cprintf("----------------------------------------------------------------------------|\n");
+
+    pde_t *pgdir = (pde_t *)PGADDR(PDX(UVPT), PDX(UVPT), 0);
+	char perm_w, perm_u, perm_a, perm_d, perm_s;	
+
+	while (va_l <= va_r) 
+	{
+        pde_t pde = pgdir[PDX(va_l)];
+        if (pde & PTE_P) 
+		{
+            perm_w = perms[pde & PTE_W];
+            perm_u = perms[pde & PTE_U];
+            perm_a = perms[pde & PTE_A];
+            perm_d = perms[pde & PTE_D];
+            perm_s = perms[pde & PTE_PS];
+            pde = PTE_ADDR(pde);
+            if (va_l < KERNBASE) {
+                cprintf(" |	[0x%08x - 0x%08x]		", va_l, va_l + PTSIZE - 1);
+                cprintf(" PDE[%03x] --%c%c%c--%c%cP  -|\n", PDX(va_l), perm_s, perm_d, perm_a, perm_u, perm_w);
+                pte_t *pte = (pte_t *) (pde + KERNBASE);
+                for (size_t i = 0; i < NPDENTRIES && va_l <= va_r; i++, va_l += PGSIZE) {
+                    if (pte[i] & PTE_P) {
+                        perm_w = perms[pte[i] & PTE_W];
+                        perm_u = perms[pte[i] & PTE_U];
+                        perm_a = perms[pte[i] & PTE_A];
+                        perm_d = perms[pte[i] & PTE_D];
+                        perm_s = perms[pte[i] & PTE_PS];
+                        cprintf(" |-[0x%08x - 0x%08x]", va_l, va_l + PGSIZE - 1);   
+                        cprintf(" [0x%08x - 0x%08x] ", PTE_ADDR(pte[i]), PTE_ADDR(pte[i]) + PGSIZE - 1);           
+						cprintf(" PTE[%03x] --%c%c%c--%c%cP-|\n", i, perm_s, perm_d, perm_a, perm_u, perm_w);
+					}
+                }
+			}
+			if (va_l == 0xffc00000) break;
+        }
+
+        va_l += PTSIZE;
+    }
+
+    return 0;
 }
 int
 mon_time(int argc, char **argv, struct Trapframe *tf){
