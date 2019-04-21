@@ -153,6 +153,7 @@ mem_init(void)
 	// following line.)
 
 	// Permissions: kernel R, user R
+	//panic("kern_pgdir init:\n");
 	kern_pgdir[PDX(UVPT)] = PADDR(kern_pgdir) | PTE_U | PTE_P;
 
 	//////////////////////////////////////////////////////////////////////
@@ -199,6 +200,8 @@ mem_init(void)
 	//    - the new image at UENVS  -- kernel R, user R
 	//    - envs itself -- kernel RW, user NONE
 	// LAB 3: Your code here.
+	envs  = (struct Env  * ) boot_alloc(NENV   * sizeof (struct Env ));
+	boot_map_region(kern_pgdir,UENVS             , PTSIZE   , PADDR(envs)     , PTE_U);
 
 	//////////////////////////////////////////////////////////////////////
 	// Use the physical memory that 'bootstack' refers to as the kernel
