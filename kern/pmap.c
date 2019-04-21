@@ -107,7 +107,7 @@ boot_alloc(uint32_t n)
 	// LAB 2: Your code here.
 	assert(n >= 0);
 	if(n > 0){
-		char * kva_start = nextfree;
+		char *kva_start = nextfree;
 		/*PADDR takes a kernel virtual address(KERNBASE) 
 		 * 		returns the corresponding physical address. 
 		 *KADDR takes a physical address 
@@ -160,7 +160,6 @@ mem_init(void)
 
 	// Permissions: kernel R, user R
 	//assert((uint32_t)kern_pgdir >= KERNBASE);
-	cprintf("kern_pgdir: %08lx\n", kern_pgdir);
 	kern_pgdir[PDX(UVPT)] = PADDR(kern_pgdir) | PTE_U | PTE_P;
 
 	//////////////////////////////////////////////////////////////////////
