@@ -53,6 +53,7 @@ struct Env {
 	uint32_t env_runs;		// Number of times environment has run
 
 	// Address space
+	uintptr_t env_heap_bottom;
 	pde_t *env_pgdir;		// Kernel virtual address of page dir
 };
 

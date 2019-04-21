@@ -146,11 +146,10 @@ mem_init(void)
 	//////////////////////////////////////////////////////////////////////
 	// create initial page directory.
 	kern_pgdir = (pde_t *) boot_alloc(PGSIZE);
-	cprintf("mem_init: kern_pgdir: %08lx\n", kern_pgdir);
+	cprintf("mem_init: kern_pgdir1: %08lx\n", kern_pgdir);
 	memset(kern_pgdir, 0, PGSIZE);
-
-	kern_pgdir = (pde_t *)0xf01a1000;
-	cprintf("mem_init: kern_pgdir: %08lx\n", kern_pgdir);
+	//kern_pgdir = (pde_t *)0xf01a1000;
+	cprintf("mem_init: kern_pgdir2: %08lx\n", kern_pgdir);
 
 	//////////////////////////////////////////////////////////////////////
 	// Recursively insert PD in itself as a page table, to form
@@ -175,7 +174,7 @@ mem_init(void)
 	// Make 'envs' point to an array of size 'NENV' of 'struct Env'.
 	// LAB 3: Your code here.
 	envs  = (struct Env  * ) boot_alloc(NENV   * sizeof (struct Env ));
-	boot_map_region(kern_pgdir,UENVS, PTSIZE, PADDR(envs), PTE_U);
+	memset(envs, 0, NENV * sizeof(struct Env));
 
 	//////////////////////////////////////////////////////////////////////
 	// Now that we've allocated the initial kernel data structures, we set
@@ -208,7 +207,7 @@ mem_init(void)
 	//    - the new image at UENVS  -- kernel R, user R
 	//    - envs itself -- kernel RW, user NONE
 	// LAB 3: Your code here.
-	envs  = (struct Env  * ) boot_alloc(NENV   * sizeof (struct Env ));
+	
 	boot_map_region(kern_pgdir,UENVS             , PTSIZE   , PADDR(envs)     , PTE_U);
 
 	//////////////////////////////////////////////////////////////////////
@@ -233,7 +232,7 @@ mem_init(void)
 	// Your code goes here:
 	boot_map_region_large(kern_pgdir,KERNBASE, -KERNBASE, 0, PTE_W);
 	// Check that the initial page directory has been set up correctly.
-	panic("start check_kern_pgdir\n");
+	//panic("start check_kern_pgdir\n");
 	check_kern_pgdir();
 
 	// Switch from the minimal entry page directory to the full kern_pgdir
