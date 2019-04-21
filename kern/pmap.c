@@ -86,6 +86,7 @@ static void check_page_installed_pgdir(void);
 static void *
 boot_alloc(uint32_t n)
 {
+	cprintf("boot_alloc: n:%d\n", n);
 	static char *nextfree;	// virtual address of next byte of free memory
 	char *result;
 
@@ -114,6 +115,7 @@ boot_alloc(uint32_t n)
 		 *ROUNDUP Round up to the nearest multiple of n,(efficient when n is a power of 2)
 		*/
 		nextfree = KADDR(PADDR(ROUNDUP(nextfree+n, PGSIZE)));
+		cprintf("boot_alloc: kva_start: %08lx\n", (uint32_t)kva_start);
 		return kva_start;
 	}else if(n==0){
 		return nextfree;
@@ -146,8 +148,9 @@ mem_init(void)
 	//////////////////////////////////////////////////////////////////////
 	// create initial page directory.
 	kern_pgdir = (pde_t *) boot_alloc(PGSIZE);
-
+	cprintf("mem_init: kern_pgdir: %08lx\n", kern_pgdir);
 	memset(kern_pgdir, 0, PGSIZE);
+	cprintf("mem_init: kern_pgdir: %08lx\n", kern_pgdir);
 
 	//////////////////////////////////////////////////////////////////////
 	// Recursively insert PD in itself as a page table, to form
@@ -156,7 +159,8 @@ mem_init(void)
 	// following line.)
 
 	// Permissions: kernel R, user R
-	//panic("kern_pgdir init:\n");
+	//assert((uint32_t)kern_pgdir >= KERNBASE);
+	cprintf("kern_pgdir: %08lx\n", kern_pgdir);
 	kern_pgdir[PDX(UVPT)] = PADDR(kern_pgdir) | PTE_U | PTE_P;
 
 	//////////////////////////////////////////////////////////////////////
