@@ -86,7 +86,6 @@ static void check_page_installed_pgdir(void);
 static void *
 boot_alloc(uint32_t n)
 {
-	cprintf("boot_alloc: n:%d\n", n);
 	static char *nextfree;	// virtual address of next byte of free memory
 	char *result;
 
@@ -105,24 +104,23 @@ boot_alloc(uint32_t n)
 	// to a multiple of PGSIZE.
 	//
 	// LAB 2: Your code here.
-	assert(n >= 0);
-	if(n > 0){
-		char *kva_start = nextfree;
-		/*PADDR takes a kernel virtual address(KERNBASE) 
-		 * 		returns the corresponding physical address. 
-		 *KADDR takes a physical address 
-		 *		returns the corresponding kernel virtual address
-		 *ROUNDUP Round up to the nearest multiple of n,(efficient when n is a power of 2)
-		*/
-		nextfree = KADDR(PADDR(ROUNDUP(nextfree+n, PGSIZE)));
-		cprintf("boot_alloc: kva_start: %08lx\n", (uint32_t)kva_start);
-		return kva_start;
-	}else if(n==0){
+	if (n == 0){
 		return nextfree;
 	}
-	panic("boot_alloc: ERROR\n");
+	else if (n > 0){
+		char * start_addr = nextfree;
+		if ((uint32_t)nextfree + n < KERNBASE){
+			panic("out of memory ");
+		}
+		nextfree = ROUNDUP(nextfree + n, PGSIZE);
+		return start_addr;
+	}
+	else{
+		return NULL;
+	}
 	return NULL;
 }
+
 
 // Set up a two-level page table:
 //    kern_pgdir is its linear (virtual) address of the root
@@ -150,6 +148,8 @@ mem_init(void)
 	kern_pgdir = (pde_t *) boot_alloc(PGSIZE);
 	cprintf("mem_init: kern_pgdir: %08lx\n", kern_pgdir);
 	memset(kern_pgdir, 0, PGSIZE);
+
+	kern_pgdir = (pde_t *)0xf01a1000;
 	cprintf("mem_init: kern_pgdir: %08lx\n", kern_pgdir);
 
 	//////////////////////////////////////////////////////////////////////
