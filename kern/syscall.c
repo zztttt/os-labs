@@ -78,6 +78,9 @@ sys_sbrk(uint32_t inc)
 {
     // LAB3: your code here.
     return 0;
+	//region_alloc(curenv, (void *)(curenv->env_heap_bottom - inc), inc);
+	//curenv->env_heap_bottom = (uintptr_t)ROUNDDOWN(curenv->env_heap_bottom - inc,PGSIZE);
+    //return curenv->env_heap_bottom;
 }
 
 // Dispatches to the correct kernel function, passing the arguments.
@@ -88,11 +91,51 @@ syscall(uint32_t syscallno, uint32_t a1, uint32_t a2, uint32_t a3, uint32_t a4, 
 	// Return any appropriate return value.
 	// LAB 3: Your code here.
 
-	panic("syscall not implemented");
-
+	//panic("syscall not implemented");
 	switch (syscallno) {
-	default:
-		return -E_INVAL;
+		case SYS_cputs:
+			sys_cputs((char *)a1, (size_t)a2);
+			return 0;
+		case SYS_cgetc:
+			return sys_cgetc();
+		case SYS_getenvid:
+			// typedef int32_t envid_t;
+			return sys_getenvid();
+		case SYS_env_destroy:
+			return sys_env_destroy((envid_t)a1);
+		case SYS_map_kernel_page:
+		  	return sys_map_kernel_page((void *)a1, (void *)a2);
+		case SYS_sbrk:
+			return sys_sbrk(a1);
+		case NSYSCALLS:
+		default:
+			return -E_INVAL;	
 	}
+	/*int32_t ret;
+	switch (syscallno) {
+		case SYS_cputs:
+			sys_cputs((char*)a1, (size_t)a2);
+			ret = 0;
+			break;
+		case SYS_cgetc:
+			ret = sys_cgetc();
+			break;
+		case SYS_getenvid:
+			ret = sys_getenvid();
+			break;
+		case SYS_env_destroy:
+			ret = sys_env_destroy((envid_t)a1);
+			break;
+		case SYS_map_kernel_page:
+			ret = sys_map_kernel_page((void *) a1, (void *) a2);
+			break;
+		case SYS_sbrk:
+			ret = sys_sbrk((uint32_t)a1);
+			break;
+		case NSYSCALLS:
+		default:
+			return -E_INVAL;
+	}
+	return ret;*/
 }
 

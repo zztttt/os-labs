@@ -83,6 +83,7 @@ trap_init(void)
 	extern void ENTRY_ALIGN  ();/* 17 aligment check*/
 	extern void ENTRY_MCHK   ();/* 18 machine check*/
 	extern void ENTRY_SIMDERR();/* 19 SIMD floating point error*/
+	extern void ENTRY_SYSCALL();/* 48 system call*/
 
 	SETGATE(idt[T_DIVIDE ],0,GD_KT,ENTRY_DIVIDE ,0);
 	SETGATE(idt[T_DEBUG  ],0,GD_KT,ENTRY_DEBUG  ,0);
@@ -104,6 +105,8 @@ trap_init(void)
 	SETGATE(idt[T_ALIGN  ],0,GD_KT,ENTRY_ALIGN  ,0);
 	SETGATE(idt[T_MCHK   ],0,GD_KT,ENTRY_MCHK   ,0);
 	SETGATE(idt[T_SIMDERR],0,GD_KT,ENTRY_SIMDERR,0);
+	//SYSTEM CALL
+	SETGATE(idt[T_SYSCALL],0,GD_KT,ENTRY_SYSCALL,3);
 
 	//extern void sysenter_handler();
 	//wrmsr(0x174, GD_KT, 0);           /* SYSENTER_CS_MSR */
@@ -189,36 +192,41 @@ trap_dispatch(struct Trapframe *tf)
 {
 	// Handle processor exceptions.
 	// LAB 3: Your code here.
-	switch(tf->tf_trapno){
-		case T_DEBUG:
-		cprintf("trap T_DEBUG:debug exception\n");
-		monitor(tf);
-		return ;
-		case T_DIVIDE:
-		cprintf("trap T_DIVIDE:divide error\n");
-		break ;
-		case T_BRKPT:
-		cprintf("trap T_BRKPT:breakpoint\n");
-		monitor(tf);
-		return ;
-		case T_GPFLT:
-		cprintf("trap T_DIVIDE:general protection fault\n");
-		break ;
+	switch (tf->tf_trapno) {
+		// page fault exception
 		case T_PGFLT:
-		page_fault_handler(tf);
-		break;
-		default:
-		cprintf("trap no=%d\n",tf->tf_trapno);
-		break ;
+			page_fault_handler(tf);
+			break;
+		// breakpoint exception
+		case T_BRKPT:
+			monitor(tf);
+			break;
+		// system call 
+		case T_SYSCALL:
+			// invoke kern/syscall.c/syscall()
+			// int32_t syscall(uint32_t syscallno, uint32_t a1-a5)
+			// The system call number will go in %eax, and the arguments (up to five of them) will go in %edx, %ecx, %ebx, %edi, and %esi, respectively
+			tf->tf_regs.reg_eax = syscall(
+				tf->tf_regs.reg_eax,
+				tf->tf_regs.reg_edx,
+				tf->tf_regs.reg_ecx,
+				tf->tf_regs.reg_ebx,
+				tf->tf_regs.reg_edi,
+				tf->tf_regs.reg_esi
+			);
+			break;
+		// Unexpected trap: The user process or the kernel has a bug.
+		default: {
+			print_trapframe(tf);
+			if (tf->tf_cs == GD_KT)
+				panic("unhandled trap in kernel");
+			else {
+				env_destroy(curenv);
+				return;
+			}
+		}
 	}
-	// Unexpected trap: The user process or the kernel has a bug.
-	print_trapframe(tf);
-	if (tf->tf_cs == GD_KT)
-		panic("unhandled trap in kernel");
-	else {
-		env_destroy(curenv);
-		return;
-	}
+	
 }
 
 void
@@ -234,7 +242,7 @@ trap(struct Trapframe *tf)
 	assert(!(read_eflags() & FL_IF));
 
 	cprintf("Incoming TRAP frame at %p\n", tf);
-
+	print_trapframe(tf);
 	if ((tf->tf_cs & 3) == 3) {
 		// Trapped from user mode.
 		assert(curenv);

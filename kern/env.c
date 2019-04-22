@@ -187,6 +187,9 @@ env_setup_vm(struct Env *e)
 	e->env_pgdir = page2kva(p);
 	p->pp_ref++ ;
 	int i;
+	for (i = 0; i < PDX(UTOP); i++){
+		e->env_pgdir[i] = 0;
+	}
 	for(i = PDX(UTOP) ; i < NPDENTRIES ; i++ )
 		e->env_pgdir[i]=kern_pgdir[i];
 	// UVPT maps the env's own page table read-only.
@@ -341,8 +344,6 @@ load_icode(struct Env *e, uint8_t *binary, size_t len)
 	//  What?  (See env_run() and env_pop_tf() below.)
 
 	// LAB 3: Your code here.
-
-	
 	struct Elf * elf = (struct Elf *) binary;
 	struct Proghdr *ph, *eph;
 
@@ -371,8 +372,7 @@ load_icode(struct Env *e, uint8_t *binary, size_t len)
 
 	// LAB 3: Your code here.
 	region_alloc(e, (void *) (USTACKTOP - PGSIZE), PGSIZE);
-	
-	//e->env_heap_bottom = (uintptr_t)ROUNDDOWN(USTACKTOP - PGSIZE,PGSIZE);
+	e->env_heap_bottom = (uintptr_t)ROUNDDOWN(USTACKTOP - PGSIZE,PGSIZE);
 }
 
 //
