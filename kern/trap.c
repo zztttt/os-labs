@@ -83,6 +83,7 @@ trap_init(void)
 	extern void ENTRY_ALIGN  ();/* 17 aligment check*/
 	extern void ENTRY_MCHK   ();/* 18 machine check*/
 	extern void ENTRY_SIMDERR();/* 19 SIMD floating point error*/
+	//extern viud
 	extern void ENTRY_SYSCALL();/* 48 system call*/
 
 	SETGATE(idt[T_DIVIDE ],0,GD_KT,ENTRY_DIVIDE ,0);
@@ -226,7 +227,6 @@ trap_dispatch(struct Trapframe *tf)
 			}
 		}
 	}
-	
 }
 
 void
@@ -242,7 +242,7 @@ trap(struct Trapframe *tf)
 	assert(!(read_eflags() & FL_IF));
 
 	cprintf("Incoming TRAP frame at %p\n", tf);
-	print_trapframe(tf);
+	//print_trapframe(tf);
 	if ((tf->tf_cs & 3) == 3) {
 		// Trapped from user mode.
 		assert(curenv);
