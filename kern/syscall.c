@@ -78,7 +78,6 @@ static int
 sys_sbrk(uint32_t inc)
 {
     // LAB3: your code here.
-    return 0;
 	region_alloc(curenv, (void *)(curenv->env_heap_bottom - inc), inc);
 	curenv->env_heap_bottom = (uintptr_t)ROUNDDOWN(curenv->env_heap_bottom - inc,PGSIZE);
     return curenv->env_heap_bottom;
