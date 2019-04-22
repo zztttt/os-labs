@@ -193,7 +193,9 @@ trap_dispatch(struct Trapframe *tf)
 {
 	// Handle processor exceptions.
 	// LAB 3: Your code here.
+	cprintf("tf_trapno:%d\n", tf->tf_trapno);
 	switch (tf->tf_trapno) {
+		
 		// page fault exception
 		case T_PGFLT:
 			page_fault_handler(tf);
@@ -202,6 +204,9 @@ trap_dispatch(struct Trapframe *tf)
 		case T_BRKPT:
 			monitor(tf);
 			break;
+		/*case T_GPFLT:
+			cprintf("trap T_DIVIDE:general protection fault\n");
+      		break;*/
 		// system call 
 		case T_SYSCALL:
 			// invoke kern/syscall.c/syscall()
