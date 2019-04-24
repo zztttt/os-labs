@@ -146,10 +146,10 @@ mem_init(void)
 	//////////////////////////////////////////////////////////////////////
 	// create initial page directory.
 	kern_pgdir = (pde_t *) boot_alloc(PGSIZE);
-	cprintf("mem_init: kern_pgdir1: %08lx\n", kern_pgdir);
+	//cprintf("mem_init: kern_pgdir1: %08lx\n", kern_pgdir);
 	memset(kern_pgdir, 0, PGSIZE);
 	//kern_pgdir = (pde_t *)0xf01a1000;
-	cprintf("mem_init: kern_pgdir2: %08lx\n", kern_pgdir);
+	//cprintf("mem_init: kern_pgdir2: %08lx\n", kern_pgdir);
 
 	//////////////////////////////////////////////////////////////////////
 	// Recursively insert PD in itself as a page table, to form
@@ -207,8 +207,10 @@ mem_init(void)
 	//    - the new image at UENVS  -- kernel R, user R
 	//    - envs itself -- kernel RW, user NONE
 	// LAB 3: Your code here.
-	
-	boot_map_region(kern_pgdir,UENVS             , PTSIZE   , PADDR(envs)     , PTE_U);
+	/*
+	* mapping envs' pages, and set its perm with PTE_U
+	*/
+	boot_map_region(kern_pgdir,UENVS, PTSIZE, PADDR(envs), PTE_U);
 
 	//////////////////////////////////////////////////////////////////////
 	// Use the physical memory that 'bootstack' refers to as the kernel
