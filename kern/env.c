@@ -391,7 +391,6 @@ load_icode(struct Env *e, uint8_t *binary, size_t len)
 
 	// LAB 3: Your code here.
 	region_alloc(e, (void *) (USTACKTOP - PGSIZE), PGSIZE);
-	e->env_heap_bottom = (uintptr_t)ROUNDDOWN(USTACKTOP - PGSIZE,PGSIZE);
 }
 
 //

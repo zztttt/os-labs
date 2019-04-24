@@ -78,9 +78,14 @@ static int
 sys_sbrk(uint32_t inc)
 {
     // LAB3: your code here.
-	region_alloc(curenv, (void *)(curenv->env_heap_bottom - inc), inc);
-	curenv->env_heap_bottom = (uintptr_t)ROUNDDOWN(curenv->env_heap_bottom - inc,PGSIZE);
-    return curenv->env_heap_bottom;
+	//for reuse
+	static uintptr_t heap_bottom = -1;
+	if(heap_bottom == -1){
+		heap_bottom = (uintptr_t)ROUNDDOWN(USTACKTOP - PGSIZE,PGSIZE);
+	}
+	region_alloc(curenv, (void *)(heap_bottom - inc), inc);
+	heap_bottom = (uintptr_t)ROUNDDOWN(heap_bottom - inc,PGSIZE);
+	return heap_bottom;
 }
 
 // Dispatches to the correct kernel function, passing the arguments.
