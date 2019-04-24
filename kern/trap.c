@@ -209,9 +209,6 @@ trap_dispatch(struct Trapframe *tf)
       		break;*/
 		// system call 
 		case T_SYSCALL:
-			// invoke kern/syscall.c/syscall()
-			// int32_t syscall(uint32_t syscallno, uint32_t a1-a5)
-			// The system call number will go in %eax, and the arguments (up to five of them) will go in %edx, %ecx, %ebx, %edi, and %esi, respectively
 			tf->tf_regs.reg_eax = syscall(
 				tf->tf_regs.reg_eax,
 				tf->tf_regs.reg_edx,
