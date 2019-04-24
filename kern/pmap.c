@@ -149,7 +149,7 @@ mem_init(void)
 	//cprintf("mem_init: kern_pgdir1: %08lx\n", kern_pgdir);
 	memset(kern_pgdir, 0, PGSIZE);
 	//kern_pgdir = (pde_t *)0xf01a1000;
-	//cprintf("mem_init: kern_pgdir2: %08lx\n", kern_pgdir);
+	cprintf("mem_init: kern_pgdir2: %08lx\n", kern_pgdir);
 
 	//////////////////////////////////////////////////////////////////////
 	// Recursively insert PD in itself as a page table, to form
@@ -623,14 +623,13 @@ user_mem_check(struct Env *env, const void *va, size_t len, int perm)
 			else  user_mem_check_addr = (uintptr_t)i;
 			return -E_FAULT;
 		}
-		
+		//ULIM: MMIOBASE = (MMIOLIM - PTSIZE)
 		if ((*pte & perm) == 0 && i >= ULIM) {
             if (i == start)  user_mem_check_addr = (uintptr_t)va;
             else  user_mem_check_addr = (uintptr_t)i;
             return -E_FAULT;
         }
 	}
-
 	return 0;
 }
 

@@ -5,6 +5,10 @@
 #include <inc/mmu.h>
 #include <inc/x86.h>
 
+char vaddr[PGSIZE];
+struct Segdesc old;
+struct Segdesc *gdt;
+struct Segdesc *entry;
 
 // Call this function with ring0 privilege
 void evil()
@@ -27,16 +31,12 @@ void evil()
 	outb(0x3f8, '\n');
 }
 
-char user_gdt[PGSIZE*2];
-struct Segdesc *gdte_ptr,gdte_backup;
-static void (*ring0_call_func)(void) = NULL;
-static void
-call_fun_wrapper()
+void call_fun_ptr()
 {
-    ring0_call_func();
-    *gdte_ptr = gdte_backup;
+    evil();  
+    *entry = old;  
     asm volatile("leave");
-    asm volatile("lret");
+    asm volatile("lret");   
 }
 
 static void
@@ -60,24 +60,25 @@ void ring0_call(void (*fun_ptr)(void)) {
     //        to add any functions or global variables in this 
     //        file if necessary.
 
-    // 1.
-    struct Pseudodesc gdtd;
-    sgdt(&gdtd);
-    // 2.
-    int r;
-    if((r = sys_map_kernel_page((void* )gdtd.pd_base, (void* )user_gdt)) < 0){
-      cprintf("ring0_call: sys_map_kernel_page failed, %e\n", r);
-      return ;
+    // Lab3 : Your Code Here
+    struct Pseudodesc r_gdt; 
+    sgdt(&r_gdt);
+
+    int t = sys_map_kernel_page((void* )r_gdt.pd_base, (void* )vaddr);
+    if (t < 0) {
+        cprintf("ring0_call: sys_map_kernel_page failed, %e\n", t);
     }
-    ring0_call_func = fun_ptr;// DONT MOVE THIS BEFORE SYS_MAP_KERNEL_PAGE
-    // 3.
-    struct Segdesc *gdt = (struct Segdesc*)((uint32_t)(PGNUM(user_gdt) << PTXSHIFT) + PGOFF(gdtd.pd_base));
-    //cprintf("(user_gdt,gdt) = (%08x,%08x)\n", (uint32_t)user_gdt,(uint32_t)gdt);
-    int GD_EVIL = GD_UD; // 0x8 * n  0x18(GD_UT) 0x20(GD_UD) 0x28(GD_TSS0)
-    gdte_backup = *(gdte_ptr = &gdt[GD_EVIL >> 3]);
-    SETCALLGATE(*((struct Gatedesc *)gdte_ptr), GD_KT, call_fun_wrapper, 3);
-    // 4. 5. 6. 7.
-    asm volatile ("lcall %0, $0" : : "i"(GD_EVIL));
+
+    uint32_t base = (uint32_t)(PGNUM(vaddr) << PTXSHIFT);
+    uint32_t index = GD_UD >> 3;
+    uint32_t offset = PGOFF(r_gdt.pd_base);
+
+    gdt = (struct Segdesc*)(base+offset); 
+    entry = gdt + index; 
+    old= *entry; 
+
+    SETCALLGATE(*((struct Gatedesc*)entry), GD_KT, call_fun_ptr, 3);
+    asm volatile("lcall $0x20, $0");
 }
 
 void

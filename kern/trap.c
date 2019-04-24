@@ -108,11 +108,6 @@ trap_init(void)
 	SETGATE(idt[T_SIMDERR],0,GD_KT,ENTRY_SIMDERR,0);
 	//SYSTEM CALL
 	SETGATE(idt[T_SYSCALL],0,GD_KT,ENTRY_SYSCALL,3);
-
-	//extern void sysenter_handler();
-	//wrmsr(0x174, GD_KT, 0);           /* SYSENTER_CS_MSR */
-	//wrmsr(0x175, KSTACKTOP, 0);       /* SYSENTER_ESP_MSR */
-	//wrmsr(0x176, sysenter_handler, 0);/* SYSENTER_EIP_MSR */
 	// LAB 3: Your code here.
 
 	// Per-CPU setup 
