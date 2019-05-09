@@ -234,7 +234,8 @@ mem_init(void)
 	// we just set up the mapping anyway.
 	// Permissions: kernel RW, user NONE
 	// Your code goes here:
-
+	//boot_map_region_large(kern_pgdir,KERNBASE, -KERNBASE, 0, PTE_W);
+	boot_map_region(kern_pgdir,KERNBASE, -KERNBASE, 0, PTE_W);
 	// Initialize the SMP-related parts of the memory map
 	mem_init_mp();
 
@@ -273,8 +274,7 @@ mem_init(void)
 //
 static void
 mem_init_mp(void)
-{
-	// Map per-CPU stacks starting at KSTACKTOP, for up to 'NCPU' CPUs.
+{	// Map per-CPU stacks starting at KSTACKTOP, for up to 'NCPU' CPUs.
 	//
 	// For CPU i, use the physical memory that 'percpu_kstacks[i]' refers
 	// to as its kernel stack. CPU i's kernel stack grows down from virtual
@@ -290,7 +290,10 @@ mem_init_mp(void)
 	//     Permissions: kernel RW, user NONE
 	//
 	// LAB 4: Your code here:
-
+	size_t i;
+	for(i = 0; i < NCPU; ++i){
+		boot_map_region(kern_pgdir, KSTACKTOP - i*(KSTKSIZE + KSTKGAP) - KSTKSIZE, KSTKSIZE, PADDR(percpu_kstacks[i]), PTE_W);
+	}
 }
 
 // --------------------------------------------------------------

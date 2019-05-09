@@ -568,6 +568,8 @@ env_run(struct Env *e)
 		e->env_runs++;
 		lcr3(PADDR(e->env_pgdir));
   	}
+	//cprintf("CPU%d ready to release lock\n", cpunum());
+	unlock_kernel();
   	env_pop_tf(&e->env_tf);
 }
 
