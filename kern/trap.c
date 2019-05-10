@@ -155,40 +155,23 @@ trap_init_percpu(void)
 	/*ts.ts_esp0 = KSTACKTOP;
 	ts.ts_ss0 = GD_KD;
 	ts.ts_iomb = sizeof(struct Taskstate);*/
-	/*uint8_t id = thiscpu->cpu_id;
+	uint8_t id = thiscpu->cpu_id;
 	thiscpu->cpu_ts.ts_esp0 = KSTACKTOP - id*(KSTKSIZE+KSTKGAP);
 	thiscpu->cpu_ts.ts_ss0 = GD_KD;
-	thiscpu->cpu_ts.ts_iomb = sizeof(struct Taskstate);*/
+	thiscpu->cpu_ts.ts_iomb = sizeof(struct Taskstate);
 	
 
 	// Initialize the TSS slot of the gdt.
 	/*gdt[GD_TSS0 >> 3] = SEG16(STS_T32A, (uint32_t) (&ts),
 					sizeof(struct Taskstate) - 1, 0);
 	gdt[GD_TSS0 >> 3].sd_s = 0;*/
-	/*int i = id << 3;
+	int i = id << 3;
 	gdt[(GD_TSS0 + i) >> 3] = SEG16(STS_T32A, (uint32_t) (&(thiscpu->cpu_ts)),
 								sizeof(struct Taskstate) - 1, 0);
 	gdt[(GD_TSS0 + i) >> 3].sd_s = 0;
 	// Load the TSS selector (like other segment selectors, the
 	// bottom three bits are special; we leave them 0)
 	ltr(GD_TSS0 + i);
-
-	// Load the IDT
-	lidt(&idt_pd);*/
-	int i = thiscpu->cpu_id;
-	thiscpu->cpu_ts.ts_esp0 = KSTACKTOP - i * (KSTKSIZE + KSTKGAP);
-	thiscpu->cpu_ts.ts_ss0 = GD_KD;
-	thiscpu->cpu_ts.ts_iomb = sizeof(struct Taskstate);
-
-	// Initialize the TSS slot of the gdt.
-	int GD_TSSi = GD_TSS0 + (i << 3);
-	gdt[(GD_TSS0 >> 3) + i] = SEG16(STS_T32A, (uint32_t) (&(thiscpu->cpu_ts)),
-					sizeof(struct Taskstate) - 1, 0);
-	gdt[(GD_TSS0 >> 3) + i].sd_s = 0;
-
-	// Load the TSS selector (like other segment selectors, the
-	// bottom three bits are special; we leave them 0)
-	ltr(GD_TSSi);
 
 	// Load the IDT
 	lidt(&idt_pd);
@@ -416,11 +399,31 @@ page_fault_handler(struct Trapframe *tf)
 	//   (the 'tf' variable points at 'curenv->env_tf').
 
 	// LAB 4: Your code here.
+	if (curenv->env_pgfault_upcall) {
+		struct UTrapframe * utf;
+		if ((uint32_t)(UXSTACKTOP - tf->tf_esp) < PGSIZE)
+			utf = (struct UTrapframe *)(tf->tf_esp - sizeof(void *) - sizeof(struct UTrapframe));
+		else
+			utf = (struct UTrapframe *)(UXSTACKTOP - sizeof(struct UTrapframe));
+		user_mem_assert(curenv, (void *)utf, sizeof(struct UTrapframe), PTE_W);
 
-	// Destroy the environment that caused the fault.
-	cprintf("[%08x] user fault va %08x ip %08x\n",
-		curenv->env_id, fault_va, tf->tf_eip);
-	print_trapframe(tf);
-	env_destroy(curenv);
+		utf->utf_fault_va = fault_va;
+		utf->utf_err      = tf->tf_err;
+		utf->utf_regs     = tf->tf_regs;
+		utf->utf_eip      = tf->tf_eip;
+		utf->utf_eflags   = tf->tf_eflags;
+		utf->utf_esp      = tf->tf_esp;
+
+		curenv->env_tf.tf_eip = (uintptr_t)curenv->env_pgfault_upcall;
+		curenv->env_tf.tf_esp = (uintptr_t)utf;
+		env_run(curenv);
+	}else{
+		// Destroy the environment that caused the fault.
+		cprintf("[%08x] user fault va %08x ip %08x\n",
+			curenv->env_id, fault_va, tf->tf_eip);
+		print_trapframe(tf);
+		env_destroy(curenv);
+	}
+	
 }
 
