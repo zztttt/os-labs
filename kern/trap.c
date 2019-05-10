@@ -93,6 +93,24 @@ trap_init(void)
 	//extern viud
 	extern void ENTRY_SYSCALL();/* 48 system call*/
 
+	extern void ENTRY_IRQ_TIMER();		/* 0 IRQ_TIMER */
+	extern void ENTRY_IRQ_KBD();		/* 1 IRQ_KBD */
+	extern void ENTRY_IRQ_2();			/* 2 IRQ_2 */
+	extern void ENTRY_IRQ_3();			/* 3 IRQ_3 */
+	extern void ENTRY_IRQ_SERIAL();		/* 4 IRQ_SERIAL */
+	extern void ENTRY_IRQ_5();			/* 5 IRQ_5 */
+	extern void ENTRY_IRQ_6();			/* 6 IRQ_6 */
+	extern void ENTRY_IRQ_SPURIOUS();   /* 7 IRQ_SPURIOUS */
+	extern void ENTRY_IRQ_8();			/* 8 IRQ_8 */
+	extern void ENTRY_IRQ_9();			/* 9 IRQ_9 */
+	extern void ENTRY_IRQ_10();			/* 10 IRQ_10 */
+	extern void ENTRY_IRQ_11();			/* 11 IRQ_11 */
+	extern void ENTRY_IRQ_12();			/* 12 IRQ_12 */
+	extern void ENTRY_IRQ_13();			/* 13 IRQ_13 */
+	extern void ENTRY_IRQ_IDE();		/* 14 IRQ_IDE */
+	extern void ENTRY_IRQ_15();			/* 15 IRQ_15 */
+	extern void ENTRY_IRQ_ERROR(); 		/* 19 IRQ_ERROR */
+
 	SETGATE(idt[T_DIVIDE ],0,GD_KT,ENTRY_DIVIDE ,0);
 	SETGATE(idt[T_DEBUG  ],0,GD_KT,ENTRY_DEBUG  ,0);
 	SETGATE(idt[T_NMI    ],0,GD_KT,ENTRY_NMI    ,0);
@@ -115,7 +133,24 @@ trap_init(void)
 	SETGATE(idt[T_SIMDERR],0,GD_KT,ENTRY_SIMDERR,0);
 	//SYSTEM CALL
 	SETGATE(idt[T_SYSCALL],0,GD_KT,ENTRY_SYSCALL,3);
-	// LAB 3: Your code here.
+
+	SETGATE(idt[IRQ_OFFSET + IRQ_TIMER   ], 0, GD_KT, ENTRY_IRQ_TIMER	, 0);
+	SETGATE(idt[IRQ_OFFSET + IRQ_KBD     ], 0, GD_KT, ENTRY_IRQ_KBD		, 0);
+	SETGATE(idt[IRQ_OFFSET + 2			 ], 0, GD_KT, ENTRY_IRQ_2		, 0);
+	SETGATE(idt[IRQ_OFFSET + 3			 ], 0, GD_KT, ENTRY_IRQ_3		, 0);
+	SETGATE(idt[IRQ_OFFSET + IRQ_SERIAL  ], 0, GD_KT, ENTRY_IRQ_SERIAL	, 0);
+	SETGATE(idt[IRQ_OFFSET + 5			 ], 0, GD_KT, ENTRY_IRQ_5		, 0);
+	SETGATE(idt[IRQ_OFFSET + 6			 ], 0, GD_KT, ENTRY_IRQ_6		, 0);
+	SETGATE(idt[IRQ_OFFSET + IRQ_SPURIOUS], 0, GD_KT, ENTRY_IRQ_SPURIOUS, 0);
+	SETGATE(idt[IRQ_OFFSET + 8			 ], 0, GD_KT, ENTRY_IRQ_8		, 0);
+	SETGATE(idt[IRQ_OFFSET + 9			 ], 0, GD_KT, ENTRY_IRQ_9		, 0);
+	SETGATE(idt[IRQ_OFFSET + 10			 ], 0, GD_KT, ENTRY_IRQ_10		, 0);
+	SETGATE(idt[IRQ_OFFSET + 11 		 ], 0, GD_KT, ENTRY_IRQ_11		, 0);
+	SETGATE(idt[IRQ_OFFSET + 12		 	 ], 0, GD_KT, ENTRY_IRQ_12		, 0);
+	SETGATE(idt[IRQ_OFFSET + 13			 ], 0, GD_KT, ENTRY_IRQ_13		, 0);
+	SETGATE(idt[IRQ_OFFSET + IRQ_IDE 	 ], 0, GD_KT, ENTRY_IRQ_IDE		, 0);
+	SETGATE(idt[IRQ_OFFSET + 15			 ], 0, GD_KT, ENTRY_IRQ_15		, 0);
+	SETGATE(idt[IRQ_OFFSET + IRQ_ERROR ], 0, GD_KT, ENTRY_IRQ_ERROR , 0);
 
 	// Per-CPU setup 
 	trap_init_percpu();
@@ -242,6 +277,11 @@ trap_dispatch(struct Trapframe *tf)
 	// Handle clock interrupts. Don't forget to acknowledge the
 	// interrupt using lapic_eoi() before calling the scheduler!
 	// LAB 4: Your code here.
+	if (tf->tf_trapno == IRQ_OFFSET + IRQ_TIMER) {
+		lapic_eoi();
+		sched_yield();
+		return;
+	}
 
 	// Unexpected trap: The user process or the kernel has a bug.
 	/*print_trapframe(tf);
@@ -276,6 +316,9 @@ trap_dispatch(struct Trapframe *tf)
 				tf->tf_regs.reg_esi
 			);
 			break;
+		case IRQ_OFFSET + IRQ_TIMER:
+			sched_yield();
+			return;
 		// Unexpected trap: The user process or the kernel has a bug.
 		default: {
 			print_trapframe(tf);
