@@ -163,6 +163,63 @@ fork(void)
 int
 sfork(void)
 {
-	panic("sfork not implemented");
-	return -E_INVAL;
+	//panic("sfork not implemented");
+	//return -E_INVAL;
+	int r;
+	set_pgfault_handler(pgfault);  // set parent env's page fault handler
+
+	// fork
+	envid_t child = sys_exofork();
+	if (child < 0) 
+	panic("sfork: sys_exofork error, %e", child);
+
+	if (child == 0) {
+		thisenv = &envs[ENVX(child)];
+		return 0;
+	}
+
+	// copy memory space 
+	extern volatile pde_t uvpd[];
+	extern volatile pte_t uvpt[];
+
+	uint8_t *addr = 0;
+
+	// share the memory page below the user stack
+	// as end is determined when link, 
+	// the heap may not be included,
+	// &addr is better
+	for (addr = (uint8_t *)UTEXT; addr < (uint8_t *)ROUNDDOWN(&addr, PGSIZE); addr += PGSIZE) {
+		if ((uvpd[PDX(addr)] & PTE_P) && (uvpt[PGNUM(addr)] & PTE_P)) {
+			pte_t pte = uvpt[PGNUM(addr)];
+			int perm = PTE_U | PTE_P;  // copy the permission
+			if (pte & PTE_W) perm |= PTE_W;
+			if ((r = sys_page_map(0, addr, child, addr, perm)) < 0)
+				panic("sfork: %e", r);
+		}
+	}
+
+	// mark user stack COW for both
+	for (addr = (uint8_t *)ROUNDDOWN(&addr, PGSIZE);
+			 addr < (uint8_t *)USTACKTOP; addr += PGSIZE){
+		if ((r = sys_page_map(0, addr, child, addr, PTE_U | PTE_COW)) < 0)
+			panic("sfork: sys_page_map %08p to child error, %e", addr, r);
+		if ((r = sys_page_map(0, addr, 0, addr, PTE_U | PTE_COW)) < 0)
+			panic("sysfork: sys_page_map %08p to myself error, %e", addr, r);
+	}
+
+	// allocate user exception stack for child env
+	if ((r = sys_page_alloc(child, (void *)(UXSTACKTOP - PGSIZE), PTE_U | PTE_W)) < 0)
+		panic("sfork: sys_page_alloc user exception stack for child env error, %e", r);
+
+	// set page fault handler for child
+	extern void _pgfault_upcall(void);
+
+	if ((r = sys_env_set_pgfault_upcall(child, _pgfault_upcall)) < 0)
+		panic("sfork: %e", r);
+
+	// mark child as runnable
+	if ((r = sys_env_set_status(child, ENV_RUNNABLE)) < 0)
+		panic("sfork: %e", r);
+
+	return child;
 }

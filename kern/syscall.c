@@ -227,24 +227,23 @@ sys_page_map(envid_t srcenvid, void *srcva,
 
 	// LAB 4: Your code here.
 	//panic("sys_page_map not implemented");
-	struct Env* srcenv;
-	struct Env* dstenv;
-	struct PageInfo* p;
+	struct Env *srcenv, *dstenv;
+	struct PageInfo *pp;
 	pte_t* pte;
 	int r;
-	if ((uintptr_t)srcva >= UTOP || PGOFF(srcva) ||
-		(uintptr_t)dstva >= UTOP || PGOFF(dstva) ||
-		(perm & (PTE_U | PTE_P)) != (PTE_U | PTE_P) || (perm & (~PTE_SYSCALL)))
+	int perm_invalid = ((perm & (PTE_U|PTE_P)) != (PTE_U|PTE_P) || (perm & (~PTE_SYSCALL)));
+	  
+	if ((r = envid2env(srcenvid, &srcenv, 1)) < 0) return r;	// return -E_BAD_ENV
+	if ((r = envid2env(dstenvid, &dstenv, 1)) < 0) return r;	// return -E_BAD_ENV
+	if ((uintptr_t)srcva >= UTOP || PGOFF(srcva) || (uintptr_t)dstva >= UTOP || PGOFF(dstva)) return -E_INVAL;
+	if (!(pp = page_lookup(srcenv->env_pgdir, srcva, &pte)))  return -E_INVAL;
+	if (perm_invalid){
+		cprintf("arrive here\n");
 		return -E_INVAL;
-	if((r = envid2env(srcenvid, &srcenv, 1)) < 0)
-		return r;
-	if((r = envid2env(dstenvid, &dstenv, 1)) < 0)
-		return r;
-	if(!(p = page_lookup(srcenv->env_pgdir, srcva, &pte)))
-		return -E_INVAL;
-	if ((perm & PTE_W) && !(*pte & PTE_W))
-		return -E_INVAL;
-	return page_insert(dstenv->env_pgdir, p, dstva, perm);
+	}
+	if ((perm & PTE_W) && !(*pte & PTE_W))  return -E_INVAL;
+
+	return page_insert(dstenv->env_pgdir, pp, dstva, perm);	
 }
 
 // Unmap the page of memory at 'va' in the address space of 'envid'.
@@ -314,32 +313,56 @@ sys_ipc_try_send(envid_t envid, uint32_t value, void *srcva, unsigned perm)
 {
 	// LAB 4: Your code here.
 	//panic("sys_ipc_try_send not implemented");
-	struct Env *e;
 	int r;
-	if((r = envid2env(envid, &e, 0) ) < 0)
+	struct Env *env;
+	struct PageInfo *page;
+	pte_t *srcpte;
+
+	if ((r = envid2env(envid, &env, 0)) < 0)
 		return r;
-	if(!e->env_ipc_recving)
-		return -E_IPC_NOT_RECV;
-	if(srcva < (void*)UTOP){
-		if(PGOFF(srcva) || (perm & (PTE_U | PTE_P)) != (PTE_U | PTE_P) || (perm & (~PTE_SYSCALL)))
-		return -E_INVAL;
-		pte_t *pte;
-		struct PageInfo *pg;
-		if(!(pg = page_lookup(curenv->env_pgdir, srcva, &pte)))
-		return -E_INVAL;
-		if((*pte & perm) != perm)
-		return -E_INVAL;
-		if(e->env_ipc_dstva < (void *)UTOP){
-		if((r = page_insert(e->env_pgdir, pg, e->env_ipc_dstva, perm)) < 0)
-			return r;
+
+	if (env->env_ipc_recving)
+		env->env_ipc_perm = 0;
+	else
+		curenv->env_ipc_pending_page = NULL;
+
+	if ((uintptr_t)srcva < UTOP && ((uintptr_t)env->env_ipc_dstva < UTOP || !env->env_ipc_recving)) {
+		if ((uintptr_t)srcva % PGSIZE)
+			return -E_INVAL;
+
+		if (!(perm & PTE_U) || !(perm & PTE_P) || (perm & ~PTE_SYSCALL))
+			return -E_INVAL;
+
+		if (!(page = page_lookup(curenv->env_pgdir, srcva, &srcpte)))
+			return -E_INVAL;
+
+		if ((perm & PTE_W) && !(*srcpte & PTE_W))
+			return -E_INVAL;
+
+		if (env->env_ipc_recving) {
+			if ((r = page_insert(env->env_pgdir, page, env->env_ipc_dstva, perm)) < 0)
+				return r;
+
+			env->env_ipc_perm = perm;
+		} else {
+			curenv->env_ipc_pending_page = page;
+			curenv->env_ipc_pending_perm = perm;
 		}
 	}
-	e->env_ipc_recving        = 0;
-	e->env_ipc_from           = curenv->env_id;
-	e->env_ipc_value          = value;
-	e->env_ipc_perm           = perm;
-	e->env_status             = ENV_RUNNABLE;
-	e->env_tf.tf_regs.reg_eax = 0;
+
+	if (env->env_ipc_recving) { // The receiver is ready.
+		env->env_ipc_recving = 0;
+		env->env_ipc_from = curenv->env_id;
+		env->env_ipc_value = value;
+		env->env_status = ENV_RUNNABLE; // Wake up the receiver.
+		env->env_tf.tf_regs.reg_eax = 0; // Make the receiver's `sys_ipc_recv()` return 0.
+	} else { // The receiver is not ready.
+		curenv->env_ipc_pending_envid = envid;
+		curenv->env_ipc_pending_value = value;
+		curenv->env_status = ENV_NOT_RUNNABLE;
+		sched_yield(); // Sleep until the receiver is ready to receive my message.
+	}
+
 	return 0;
 }
 
@@ -359,14 +382,44 @@ sys_ipc_recv(void *dstva)
 {
 	// LAB 4: Your code here.
 	//panic("sys_ipc_recv not implemented");
-	if(!(dstva < (void*)UTOP) || !PGOFF(dstva)){
-		curenv->env_ipc_recving = 1;
-		curenv->env_ipc_dstva   = dstva;
-		curenv->env_status      = ENV_NOT_RUNNABLE;
-		sched_yield();
-		return 0;
+	int i;
+	int r;
+	struct Env *env;
+
+	if ((uintptr_t)dstva < UTOP) {
+		if ((uintptr_t)dstva % PGSIZE)
+			return -E_INVAL;
+
+		curenv->env_ipc_dstva = dstva;
 	}
-  return -E_INVAL;
+
+	for (i = 0; i < NENV; ++i) {
+		env = &envs[i];
+		if (env->env_status != ENV_FREE && env->env_ipc_pending_envid == curenv->env_id) { // Someone sent a message to me!
+			curenv->env_ipc_perm = 0;
+
+			if (env->env_ipc_pending_page && (uintptr_t)dstva < UTOP) { // The sender is passing a page, and I'm glad to accept.
+				if ((r = page_insert(curenv->env_pgdir, env->env_ipc_pending_page, dstva, env->env_ipc_pending_perm)) < 0)
+					return r;
+
+				curenv->env_ipc_perm = env->env_ipc_pending_perm;
+			}
+
+			curenv->env_ipc_value = env->env_ipc_pending_value;
+			curenv->env_ipc_from = env->env_id;
+			env->env_ipc_pending_envid = 0;
+			env->env_status = ENV_RUNNABLE; // Wake up the sender.
+			env->env_tf.tf_regs.reg_eax = 0; // Make the sender's `sys_ipc_try_send()` return 0.
+			return 0;
+		}
+	}
+
+	// No one has sent a message to me yet.
+
+	curenv->env_ipc_recving = 1;
+	curenv->env_status = ENV_NOT_RUNNABLE;
+	sched_yield(); // Sleep until someone sends me a message.
+	return 0;
 }
 
 static int
