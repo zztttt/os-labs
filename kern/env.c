@@ -423,13 +423,14 @@ env_create(uint8_t *binary, size_t size, enum EnvType type)
 	// LAB 5: Your code here.
 
 
-	
 	struct Env *e;
 	int r;
 	//int env_alloc(struct Env **newenv_store, envid_t parent_id)
 	//alloc and init a new env, return 0 on success
 	if((r = env_alloc(&e, 0)) < 0)
 		panic("env_create: %e", r);
+	if(type == ENV_TYPE_FS)
+  		e->env_tf.tf_eflags |= FL_IOPL_MASK;
 	e->env_type = type;
 	load_icode(e, binary, size);
 }
