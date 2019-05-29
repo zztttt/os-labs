@@ -25,8 +25,15 @@ i386_init(void)
 	// Can't call cprintf until after we do this!
 	cons_init();
 
-	cprintf("6828 decimal is %o octal!\n", 6828);
-
+	/*cprintf("6828 decimal is %o octal!%n\n%n", 6828, &chnum1, &chnum2);
+	cprintf("pading space in the right to number 22: %-8d.\n", 22);
+	cprintf("chnum1: %d chnum2: %d\n", chnum1, chnum2);
+	cprintf("%n", NULL);
+	memset(ntest, 0xd, sizeof(ntest) - 1);
+	cprintf("%s%n", ntest, &chnum1); 
+	cprintf("chnum1: %d\n", chnum1);
+	cprintf("show me the sign: %+d, %+d\n", 1024, -1024);
+	*/
 	// Lab 2 memory management initialization functions
 	mem_init();
 
@@ -45,6 +52,8 @@ i386_init(void)
 	// Your code here:
 
 	// Starting non-boot CPUs
+	//cprintf("CPU%d boot_aps want to get lock\n", cpunum());
+	lock_kernel();
 	boot_aps();
 
 	// Start fs.
@@ -115,8 +124,12 @@ mp_main(void)
 	// only one CPU can enter the scheduler at a time!
 	//
 	// Your code here:
+	cprintf("CPU%d mpmain() want to get lock\n", cpunum());
+	lock_kernel();
+	sched_yield();
 
 	// Remove this after you finish Exercise 6
+	cprintf("suspending here\n");
 	for (;;);
 }
 

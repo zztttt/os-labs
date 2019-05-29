@@ -17,6 +17,17 @@ extern size_t npages;
 
 extern pde_t *kern_pgdir;
 
+/* exchange method : PTE/PDE, PA, VA, PAGE
+ * 		PA -> VA : KADDR(pa)
+ * 		VA -> PA : PADDR(va)
+ * 		PAGE -> PA : page2pa(struct PageInfo *pp)
+ * 		PA -> PAGE : pa2page(pa)
+ * 		PAGE -> VA : page2kva(struct PageInfo *pp)
+ * 		VA -> PAGE : struct PageInfo *page_lookup(pde_t *pgdir, void *va, pte_t **pte_store)
+ * 		PTE -> PA : #define PTE_ADDR(pte)	((physaddr_t) (pte) & ~0xFFF)
+ * 		VA -> PTE : pte_t *pgdir_walk(pde_t *pgdir, const void *va, int create)
+ * 		VA, PTE, PDE can type casting, due to same type uint32_t
+ */
 
 /* This macro takes a kernel virtual address -- an address that points above
  * KERNBASE, where the machine's maximum 256MB of physical memory is mapped --
@@ -56,7 +67,7 @@ void	mem_init(void);
 void	page_init(void);
 struct PageInfo *page_alloc(int alloc_flags);
 void	page_free(struct PageInfo *pp);
-int	page_insert(pde_t *pgdir, struct PageInfo *pp, void *va, int perm);
+int		page_insert(pde_t *pgdir, struct PageInfo *pp, void *va, int perm);
 void	page_remove(pde_t *pgdir, void *va);
 struct PageInfo *page_lookup(pde_t *pgdir, void *va, pte_t **pte_store);
 void	page_decref(struct PageInfo *pp);
@@ -67,6 +78,14 @@ void *	mmio_map_region(physaddr_t pa, size_t size);
 
 int	user_mem_check(struct Env *env, const void *va, size_t len, int perm);
 void	user_mem_assert(struct Env *env, const void *va, size_t len, int perm);
+
+// Lab 2 Part 1 Exercise 2.1
+struct PageInfo *page_alloc_npages(int alloc_flags, int n);
+int 	page_free_npages(struct PageInfo *pp, int n);
+
+// Lab 2 Part 1 Exercise 2.1
+struct PageInfo *page_realloc_npages(struct PageInfo *pp, int old_n, int new_n);
+
 
 static inline physaddr_t
 page2pa(struct PageInfo *pp)

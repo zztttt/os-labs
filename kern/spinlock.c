@@ -8,7 +8,7 @@
 #include <kern/cpu.h>
 #include <kern/spinlock.h>
 #include <kern/kdebug.h>
-
+#define DEBUG_SPINLOCK
 // The big kernel lock
 struct spinlock kernel_lock = {
 #ifdef DEBUG_SPINLOCK

@@ -35,7 +35,7 @@ void call_fun_ptr()
 {
     evil();  
     *entry = old;  
-    asm volatile("popl %ebp");
+    asm volatile("leave");
     asm volatile("lret");   
 }
 
@@ -90,4 +90,3 @@ umain(int argc, char **argv)
 	// call the evil function in ring3
 	evil();
 }
-
