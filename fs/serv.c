@@ -237,7 +237,6 @@ serve_write(envid_t envid, struct Fsreq_write *req)
 
 	// LAB 5: Your code here.
 	//panic("serve_write not implemented");
-
 	struct OpenFile *o;
 	int r;
 	if((r = openfile_lookup(envid, req->req_fileid, &o)) < 0)

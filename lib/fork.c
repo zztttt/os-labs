@@ -69,19 +69,18 @@ static int
 duppage(envid_t envid, unsigned pn)
 {
 	int r;
-
-	// LAB 4: Your code here.
-	//panic("duppage not implemented");
-	void *addr = (void *)(pn * PGSIZE);
-
-	if (uvpt[pn] & (PTE_W | PTE_COW)) {
-		if ((r = sys_page_map((envid_t)0, addr, envid, addr, PTE_U|PTE_P|PTE_COW) < 0))
-    		panic("sys_page_map: %e\n", r);
-  		if ((r = sys_page_map((envid_t)0, addr, 0, addr, PTE_U|PTE_P|PTE_COW) < 0))
-    		panic("sys_page_map: %e\n", r);
+	void * addr = (void *)(pn * PGSIZE);
+	if (uvpt[pn] & PTE_SHARE) {
+		if((r = sys_page_map((envid_t)0, addr, envid, addr, uvpt[pn] & PTE_SYSCALL)) < 0)
+		panic("sys_page_map: %e\n", r);
+	}else if (uvpt[pn] & (PTE_W | PTE_COW)) {
+		if((r = sys_page_map((envid_t)0, addr, envid, addr, PTE_U | PTE_P | PTE_COW) < 0))
+		panic("sys_page_map: %e\n", r);
+		if((r = sys_page_map((envid_t)0, addr, 0    , addr, PTE_U | PTE_P | PTE_COW) < 0))
+		panic("sys_page_map: %e\n", r);
 	} else {
-  		if ((r = sys_page_map((envid_t)0, addr, envid, addr, PTE_U|PTE_P )) < 0)
-    		panic("sys_page_map: %e\n", r);
+		if((r = sys_page_map((envid_t)0, addr, envid, addr, PTE_U | PTE_P )) < 0)
+		panic("sys_page_map: %e\n", r);
 	}
 	return 0;
 }

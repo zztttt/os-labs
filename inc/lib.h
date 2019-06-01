@@ -120,6 +120,11 @@ int	pipeisclosed(int pipefd);
 // wait.c
 void	wait(envid_t env);
 
+#define USE_EVICT_POLICY
+#ifdef USE_EVICT_POLICY
+#define NBLOCKCACHE 8
+#endif
+
 /* File open modes */
 #define	O_RDONLY	0x0000		/* open for reading only */
 #define	O_WRONLY	0x0001		/* open for writing only */
